@@ -18,7 +18,10 @@
     "react-dom": "^19.1.0",
     "react-router-dom": "^5.2.0",
     "react-scripts": "5.0.0",
+    "xterm": "^4.6.0",
+     3.0
     "xterm": "^5.3.0",
+     snyk-fix-872e9a29af4f5d5ffa13576e5ab15c83
     "xterm-addon-fit": "^0.5.0"
   },
   "scripts": {
