@@ -3,22 +3,82 @@
  * Copyright (c) <spug.dev@gmail.com>
  * Released under the AGPL-3.0 License.
  */
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { observer } from 'mobx-react';
-import { Modal, Form, Input, Tooltip, message } from 'antd';
+import { Modal, Form, Input, Tooltip, Checkbox, Divider, message } from 'antd';
 import { ThunderboltOutlined, LoadingOutlined } from '@ant-design/icons';
 import http from 'libs/http';
 import store from './store';
+
+const channelConfig = [
+  {
+    key: 'email',
+    label: '邮箱',
+    fields: [
+      { name: 'email', label: '邮箱地址', placeholder: '请输入邮箱地址', testMode: '4' }
+    ]
+  },
+  {
+    key: 'ding',
+    label: '钉钉',
+    fields: [
+      { name: 'ding', label: 'Webhook', placeholder: 'https://oapi.dingtalk.com/robot/send?access_token=xxx', testMode: '3' },
+      { name: 'ding_secret', label: 'Secret', placeholder: 'SECxxxxxxxx', extra: '可选，机器人安全设置中的加签密钥' }
+    ],
+    help: { text: '钉钉收不到通知？请参考', link: 'https://ops.spug.cc/docs/use-problem#use-dd', linkText: '官方文档' }
+  },
+  {
+    key: 'feishu',
+    label: '飞书',
+    fields: [
+      { name: 'feishu', label: 'Webhook', placeholder: 'https://open.feishu.cn/open-apis/bot/v2/hook/xxx', testMode: '7' },
+      { name: 'feishu_secret', label: 'Secret', placeholder: 'xxxxxxxx', extra: '可选，机器人安全设置中的签名校验密钥' }
+    ]
+  },
+  {
+    key: 'qy_wx',
+    label: '企业微信',
+    fields: [
+      { name: 'qy_wx', label: 'Webhook', placeholder: 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx', testMode: '5' }
+    ]
+  }
+];
 
 export default observer(function () {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [testLoading, setTestLoading] = useState('0');
 
+  const initialChannels = useMemo(() => ({
+    email: !!store.record.email,
+    ding: !!store.record.ding,
+    feishu: !!store.record.feishu,
+    qy_wx: !!store.record.qy_wx,
+  }), []);
+
+  const [channels, setChannels] = useState(initialChannels);
+
+  function handleChannelToggle(key, checked) {
+    setChannels(prev => ({ ...prev, [key]: checked }));
+    if (!checked) {
+      const channel = channelConfig.find(c => c.key === key);
+      if (channel) {
+        const resetFields = channel.fields.map(f => f.name);
+        form.resetFields(resetFields);
+      }
+    }
+  }
+
   function handleSubmit() {
     setLoading(true);
     const formData = form.getFieldsValue();
     formData['id'] = store.record.id;
+    const secret = {};
+    if (formData.ding_secret) secret.ding = formData.ding_secret;
+    if (formData.feishu_secret) secret.feishu = formData.feishu_secret;
+    delete formData.ding_secret;
+    delete formData.feishu_secret;
+    formData.secret = Object.keys(secret).length ? JSON.stringify(secret) : null;
     http.post('/api/alarm/contact/', formData)
       .then(res => {
         message.success('操作成功');
@@ -39,19 +99,15 @@ export default observer(function () {
   }
 
   function Test(props) {
-    return (
-      <div style={{position: 'absolute', right: -30, top: 8}}>
-        {testLoading === props.mode ? (
-          <LoadingOutlined style={{fontSize: 18, color: '#faad14'}}/>
-        ) : (
-          <Tooltip title="执行测试">
-            <ThunderboltOutlined
-              style={{fontSize: 18, color: '#faad14'}}
-              onClick={() => handleTest(props.mode, props.name)}/>
-          </Tooltip>
-        )}
-      </div>
-    )
+    return testLoading === props.mode ? (
+      <LoadingOutlined style={{fontSize: 16, color: '#faad14'}}/>
+    ) : (
+      <Tooltip title="执行测试">
+        <ThunderboltOutlined
+          style={{fontSize: 16, color: '#faad14', cursor: 'pointer'}}
+          onClick={() => handleTest(props.mode, props.name)}/>
+      </Tooltip>
+    );
   }
 
   return (
@@ -63,35 +119,46 @@ export default observer(function () {
       onCancel={() => store.formVisible = false}
       confirmLoading={loading}
       onOk={handleSubmit}>
-      <Form form={form} initialValues={store.record} labelCol={{span: 6}} wrapperCol={{span: 14}}>
+      <Form form={form} initialValues={{
+        ...store.record,
+        ding_secret: store.record.secret ? JSON.parse(store.record.secret).ding : undefined,
+        feishu_secret: store.record.secret ? JSON.parse(store.record.secret).feishu : undefined,
+      }} labelCol={{span: 6}} wrapperCol={{span: 14}}>
         <Form.Item required name="name" label="姓名">
           <Input placeholder="请输入联系人姓名"/>
         </Form.Item>
         <Form.Item name="phone" label="手机号">
           <Input placeholder="请输入手机号"/>
         </Form.Item>
-        <Form.Item label="邮箱">
-          <Form.Item noStyle name="email">
-            <Input placeholder="请输入邮箱地址"/>
-          </Form.Item>
-          <Test mode="4" name="email"/>
-        </Form.Item>
-        <Form.Item label="钉钉" extra={<span>
-            钉钉收不到通知？请参考
-            <a target="_blank" rel="noopener noreferrer"
-               href="https://ops.spug.cc/docs/use-problem#use-dd">官方文档</a>
-          </span>}>
-          <Form.Item noStyle name="ding">
-            <Input placeholder="https://oapi.dingtalk.com/robot/send?access_token=xxx"/>
-          </Form.Item>
-          <Test mode="3" name="ding"/>
-        </Form.Item>
-        <Form.Item label="企业微信">
-          <Form.Item noStyle name="qy_wx">
-            <Input placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx"/>
-          </Form.Item>
-          <Test mode="5" name="qy_wx"/>
-        </Form.Item>
+        <Divider orientation="left" style={{margin: '8px 0 16px'}}>通知渠道</Divider>
+        {channelConfig.map(channel => (
+          <div key={channel.key} style={{marginBottom: channels[channel.key] ? 16 : 4}}>
+            <Form.Item wrapperCol={{offset: 6, span: 14}} style={{marginBottom: 0}}>
+              <Checkbox
+                checked={channels[channel.key]}
+                onChange={e => handleChannelToggle(channel.key, e.target.checked)}
+              >
+                {channel.label}
+              </Checkbox>
+            </Form.Item>
+            {channels[channel.key] && channel.fields.map(field => {
+              const extra = field.extra || (channel.help && field === channel.fields[0] ? (
+                <span>
+                  {channel.help.text}
+                  <a target="_blank" rel="noopener noreferrer" href={channel.help.link}>{channel.help.linkText}</a>
+                </span>
+              ) : undefined);
+              return (
+                <Form.Item key={field.name} name={field.name} label={field.label} extra={extra}>
+                  <Input
+                    placeholder={field.placeholder}
+                    suffix={field.testMode ? <Test mode={field.testMode} name={field.name}/> : <span/>}
+                  />
+                </Form.Item>
+              );
+            })}
+          </div>
+        ))}
       </Form>
     </Modal>
   )

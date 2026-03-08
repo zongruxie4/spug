@@ -59,6 +59,7 @@ class ComTable extends React.Component {
         <Table.Column ellipsis hide title="钉钉" dataIndex="ding"/>
         <Table.Column ellipsis hide title="微信" dataIndex="wx_token"/>
         <Table.Column ellipsis hide title="企业微信" dataIndex="qy_wx"/>
+        <Table.Column ellipsis hide title="飞书" dataIndex="feishu"/>
         {hasPermission('alarm.contact.edit|alarm.contact.del') && (
           <Table.Column title="操作" render={info => (
             <Action>

@@ -9,6 +9,27 @@ from libs.utils import human_datetime
 from libs.push import push_server
 import requests
 import json
+import time
+import hmac
+import hashlib
+import base64
+from urllib.parse import urlencode
+
+
+def _gen_dd_sign(secret):
+    timestamp = str(int(time.time() * 1000))
+    string_to_sign = f'{timestamp}\n{secret}'
+    hmac_code = hmac.new(secret.encode('utf-8'), string_to_sign.encode('utf-8'), digestmod=hashlib.sha256).digest()
+    sign = base64.b64encode(hmac_code).decode('utf-8')
+    return timestamp, sign
+
+
+def _gen_fs_sign(secret):
+    timestamp = str(int(time.time()))
+    string_to_sign = f'{timestamp}\n{secret}'
+    hmac_code = hmac.new(string_to_sign.encode('utf-8'), b'', digestmod=hashlib.sha256).digest()
+    sign = base64.b64encode(hmac_code).decode('utf-8')
+    return timestamp, sign
 
 
 class Notification:
@@ -87,8 +108,40 @@ class Notification:
                 'isAtAll': True
             }
         }
-        for url in users:
+        for url, secret in users:
+            if secret:
+                timestamp, sign = _gen_dd_sign(secret)
+                url = f'{url}&{urlencode({"timestamp": timestamp, "sign": sign})}'
             self.handle_request(url, data, 'dd')
+
+    def monitor_by_fs(self, users):
+        title = '监控告警通知' if self.event == '1' else '告警恢复通知'
+        content = [
+            [{'tag': 'text', 'text': f'告警名称：{self.title}'}],
+            [{'tag': 'text', 'text': f'告警对象：{self.target}'}],
+            [{'tag': 'text', 'text': f'{"告警" if self.event == "1" else "恢复"}时间：{human_datetime()}'}],
+            [{'tag': 'text', 'text': f'告警描述：{self.message}'}],
+        ]
+        if self.event == '2':
+            content.append([{'tag': 'text', 'text': f'持续时间：{self.duration}'}])
+        content.append([{'tag': 'text', 'text': '来自 Spug运维平台'}])
+        for url, secret in users:
+            data = {
+                'msg_type': 'post',
+                'content': {
+                    'post': {
+                        'zh_cn': {
+                            'title': title,
+                            'content': content
+                        }
+                    }
+                }
+            }
+            if secret:
+                timestamp, sign = _gen_fs_sign(secret)
+                data['timestamp'] = timestamp
+                data['sign'] = sign
+            self.handle_request(url, data, 'fs')
 
     def monitor_by_qy_wx(self, users):
         color, title = ('warning', '监控告警通知') if self.event == '1' else ('info', '告警恢复通知')
@@ -149,7 +202,13 @@ class Notification:
                 sms_ids = set(x for x in push_ids if x.startswith('sms_'))
                 targets.update(sms_ids)
             elif mode == '3':
-                users = set(x.ding for x in Contact.objects.filter(id__in=u_ids, ding__isnull=False))
+                contacts = Contact.objects.filter(id__in=u_ids, ding__isnull=False)
+                users = []
+                for c in contacts:
+                    sec = None
+                    if c.secret:
+                        sec = json.loads(c.secret).get('ding')
+                    users.append((c.ding, sec))
                 if not users:
                     Notify.make_monitor_notify(
                         '发送报警信息失败',
@@ -181,6 +240,21 @@ class Notification:
             elif mode == '6':
                 voice_ids = set(x for x in push_ids if x.startswith('voice_'))
                 targets.update(voice_ids)
+            elif mode == '7':
+                contacts = Contact.objects.filter(id__in=u_ids, feishu__isnull=False)
+                users = []
+                for c in contacts:
+                    sec = None
+                    if c.secret:
+                        sec = json.loads(c.secret).get('feishu')
+                    users.append((c.feishu, sec))
+                if not users:
+                    Notify.make_monitor_notify(
+                        '发送报警信息失败',
+                        '未找到可用的通知对象，请确保设置了相关报警联系人的飞书。'
+                    )
+                    continue
+                self.monitor_by_fs(users)
 
         if targets:
             self.monitor_by_spug_push(targets)

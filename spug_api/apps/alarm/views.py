@@ -85,6 +85,8 @@ class ContactView(View):
             Argument('ding', required=False),
             Argument('wx_token', required=False),
             Argument('qy_wx', required=False),
+            Argument('feishu', required=False),
+            Argument('secret', required=False),
         ).parse(request.body)
         if error is None:
             if form.id:
@@ -116,9 +118,11 @@ def handle_test(request):
     if error is None:
         notify = Notification(None, '1', 'https://spug.cc', 'Spug官网（测试）', '这是一条测试告警信息', None)
         if form.mode == '3':
-            notify.monitor_by_dd([form.value])
+            notify.monitor_by_dd([(form.value, None)])
         elif form.mode == '4':
             notify.monitor_by_email([form.value])
         elif form.mode == '5':
             notify.monitor_by_qy_wx([form.value])
+        elif form.mode == '7':
+            notify.monitor_by_fs([(form.value, None)])
     return json_response(error=error)
