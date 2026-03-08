@@ -7,18 +7,21 @@
     "ace-builds": "^1.4.13",
     "antd": "4.21.5",
     "axios": "^0.21.0",
-    "bizcharts": "^3.5.9",
+    "bizcharts": "^4.1.23",
     "history": "^4.10.1",
     "lodash": "^4.17.19",
     "mobx": "^5.15.6",
     "mobx-react": "^6.3.0",
     "moment": "^2.24.0",
-    "react": "^16.13.1",
+    "react": "^19.1.0",
     "react-ace": "^9.5.0",
-    "react-dom": "^16.13.1",
+    "react-dom": "^19.1.0",
     "react-router-dom": "^5.2.0",
-    "react-scripts": "3.4.3",
+    "react-scripts": "5.0.0",
     "xterm": "^4.6.0",
+     3.0
+    "xterm": "^5.3.0",
+     snyk-fix-872e9a29af4f5d5ffa13576e5ab15c83
     "xterm-addon-fit": "^0.5.0"
   },
   "scripts": {
