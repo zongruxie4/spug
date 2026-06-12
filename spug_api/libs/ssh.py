@@ -5,7 +5,6 @@ from paramiko.client import SSHClient, AutoAddPolicy
 from paramiko.rsakey import RSAKey
 from paramiko.auth_handler import AuthHandler
 from paramiko.ssh_exception import AuthenticationException, SSHException
-from paramiko.py3compat import b, u
 from io import StringIO
 from uuid import uuid4
 import time
@@ -27,9 +26,9 @@ def _finalize_pubkey_algorithm(self, key_type):
         raise SSHException(
             "An RSA key was specified, but no RSA pubkey algorithms are configured!"  # noqa
         )
-    server_algo_str = u(
-        self.transport.server_extensions.get("server-sig-algs", b(""))
-    )
+    server_algo_str = self.transport.server_extensions.get("server-sig-algs", b"")
+    if isinstance(server_algo_str, bytes):
+        server_algo_str = server_algo_str.decode()
     if server_algo_str:
         server_algos = server_algo_str.split(",")
         agreement = list(filter(server_algos.__contains__, my_algos))
