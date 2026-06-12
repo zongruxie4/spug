@@ -63,8 +63,10 @@ export default observer(function () {
     if (!checked) {
       const channel = channelConfig.find(c => c.key === key);
       if (channel) {
-        const resetFields = channel.fields.map(f => f.name);
-        form.resetFields(resetFields);
+        form.setFieldsValue(channel.fields.reduce((values, field) => {
+          values[field.name] = null;
+          return values;
+        }, {}));
       }
     }
   }
@@ -73,9 +75,16 @@ export default observer(function () {
     setLoading(true);
     const formData = form.getFieldsValue();
     formData['id'] = store.record.id;
+    channelConfig.forEach(channel => {
+      if (!channels[channel.key]) {
+        channel.fields.forEach(field => {
+          formData[field.name] = null;
+        });
+      }
+    });
     const secret = {};
-    if (formData.ding_secret) secret.ding = formData.ding_secret;
-    if (formData.feishu_secret) secret.feishu = formData.feishu_secret;
+    if (formData.ding && formData.ding_secret) secret.ding = formData.ding_secret;
+    if (formData.feishu && formData.feishu_secret) secret.feishu = formData.feishu_secret;
     delete formData.ding_secret;
     delete formData.feishu_secret;
     formData.secret = Object.keys(secret).length ? JSON.stringify(secret) : null;
@@ -90,8 +99,10 @@ export default observer(function () {
   function handleTest(mode, name) {
     const value = form.getFieldValue(name)
     if (!value) return message.error('请输入后再执行测试')
+    const secretName = name === 'ding' ? 'ding_secret' : name === 'feishu' ? 'feishu_secret' : null;
+    const secret = secretName ? form.getFieldValue(secretName) : undefined;
     setTestLoading(mode)
-    http.post('/api/alarm/test/', {mode, value})
+    http.post('/api/alarm/test/', {mode, value, secret})
       .then(() => {
         message.success('执行成功')
       })
@@ -110,6 +121,8 @@ export default observer(function () {
     );
   }
 
+  const secret = store.record.secret ? JSON.parse(store.record.secret) : {};
+
   return (
     <Modal
       visible
@@ -121,8 +134,8 @@ export default observer(function () {
       onOk={handleSubmit}>
       <Form form={form} initialValues={{
         ...store.record,
-        ding_secret: store.record.secret ? JSON.parse(store.record.secret).ding : undefined,
-        feishu_secret: store.record.secret ? JSON.parse(store.record.secret).feishu : undefined,
+        ding_secret: secret.ding,
+        feishu_secret: secret.feishu,
       }} labelCol={{span: 6}} wrapperCol={{span: 14}}>
         <Form.Item required name="name" label="姓名">
           <Input placeholder="请输入联系人姓名"/>
