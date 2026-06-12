@@ -24,7 +24,7 @@ services:
       # 如果80端口被占用可替换为其他端口，例如: - "8000:80"
       - "80:80"
     environment:
-      - SPUG_DOCKER_VERSION=v3.2.4
+      - SPUG_DOCKER_VERSION=v3.4.0
       - MYSQL_DATABASE=spug
       - MYSQL_USER=spug
       - MYSQL_PASSWORD=spug.cc
